@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('cards', function (Blueprint $table) {
             $table->id();
-            $table->integer()->constrained('licenses')->references('id')->onDelete('cascade');
+            $table->integer('license_id')->constrained('licenses')->references('id')->onDelete('cascade');
             $table->string('cardNumber');
             $table->string('secret');
             $table->date('programmedDate');
