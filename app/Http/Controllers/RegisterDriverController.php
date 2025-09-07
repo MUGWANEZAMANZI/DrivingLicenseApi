@@ -6,63 +6,129 @@ use Illuminate\Http\Request;
 use App\Models\Driver;
 use App\Models\License;
 use App\Models\Card;
-use SimpleSoftwareIO\QrCode\Facades\QrCode;
 
 class RegisterDriverController extends Controller
 {
     public function register(Request $request)
     {
-        $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
-            'surName' => 'required|string|max:255',
-            'phone' => 'required|string|max:20|unique:drivers,phone',
-            'email' => 'required|string|email|max:255|unique:drivers,email',
-            'address' => 'required|string|max:500',
-            'bloodGroup' => 'required|string|max:3',
-            'nationalId' => 'required|string|max:20|unique:drivers,nationalId',
-            'licenseNumber' => 'required|string|max:50|unique:licenses,licenseNumber',
-            'issueDate' => 'required|date',
-            'expiryDate' => 'required|date|after:issueDate',
-            'plateNumber' => 'required|string|max:20|unique:licenses,plateNumber',
-            'profileImage' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048', // 2MB max
-        ]);
+        \Log::info('Registering driver - request received', $request->all());
+        // Map frontend keys to backend keys (support both surName and surname)
+        $input = $request->all();
+        $input['surName'] = $input['surName'] ?? $input['surname'] ?? null;
+        $input['licenseNumber'] = $input['licenseNumber'] ?? $input['licenseId'] ?? null;
+        $input['plateNumber'] = $input['plateNumber'] ?? $input['plate'] ?? null;
+        $input['issueDate'] = $input['issueDate'] ?? $input['issue'] ?? null;
+        $input['expiryDate'] = $input['expiryDate'] ?? $input['expiry'] ?? null;
+        unset($input['surname'], $input['licenseId'], $input['plate'], $input['issue'], $input['expiry']);
+        try {
+            $validatedData = validator($input, [
+                'name' => 'required|string|max:255',
+                'surName' => 'required|string|max:255',
+                'phone' => 'required|string|max:20|unique:drivers,phone',
+                'email' => 'required|string|email|max:255|unique:drivers,email',
+                'address' => 'required|string|max:500',
+                'bloodGroup' => 'required|string|max:3',
+                'nationalId' => 'required|string|max:20|unique:drivers,nationalId',
+                'licenseNumber' => 'required|string|max:50|unique:licenses,licenseNumber',
+                'issueDate' => 'required|date',
+                'expiryDate' => 'required|date|after:issueDate',
+                'plateNumber' => 'required|string|max:20|unique:licenses,plateNumber',
+                'profileImage' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+                'nfcTag' => 'nullable|string|max:255',
+                'secret' => 'nullable|string|max:255',
+                'licensesAllowed' => 'nullable|string|max:255',
+                'dateLieuDelivrance' => 'nullable|string|max:255',
+                'allowedCategories' => 'nullable|string|max:255',
+            ])->validate();
+            \Log::info('Registering driver - validation passed', $validatedData);
+        } catch (\Exception $e) {
+            \Log::error('Registering driver - validation failed', ['error' => $e->getMessage(), 'input' => $input]);
+            throw $e;
+        }
 
         $profileImagePath = null;
         if ($request->hasFile('profileImage')) {
-            $profileImagePath = $request->file('profileImage')->store('profile_images', 'public');
+            try {
+                $profileImagePath = $request->file('profileImage')->store('profile_images', 'public');
+                \Log::info('Registering driver - profile image stored', ['path' => $profileImagePath]);
+            } catch (\Exception $e) {
+                \Log::error('Registering driver - profile image store failed', ['error' => $e->getMessage()]);
+                throw $e;
+            }
         }
 
-        // Create Driver
-        $driver = Driver::create([
-            'name' => $validatedData['name'],
-            'surName' => $validatedData['surName'],
-            'phone' => $validatedData['phone'],
-            'email' => $validatedData['email'],
-            'address' => $validatedData['address'],
-            'bloodGroup' => $validatedData['bloodGroup'],
-            'nationalId' => $validatedData['nationalId'],
-            'profileImage' => $profileImagePath,
-        ]);
+        try {
+            $driver = Driver::create([
+                'name' => $validatedData['name'],
+                'surName' => $validatedData['surName'],
+                'phone' => $validatedData['phone'],
+                'email' => $validatedData['email'],
+                'address' => $validatedData['address'],
+                'bloodGroup' => $validatedData['bloodGroup'],
+                'nationalId' => $validatedData['nationalId'],
+                'profileImage' => $profileImagePath,
+            ]);
+            \Log::info('Registering driver - driver created', ['driver' => $driver]);
+        } catch (\Exception $e) {
+            \Log::error('Registering driver - driver creation failed', ['error' => $e->getMessage(), 'data' => $validatedData]);
+            throw $e;
+        }
 
         if(!$driver) {
+            \Log::error('Registering driver - driver creation returned null', ['validatedData' => $validatedData]);
             return response()->json(['message' => 'Driver registration failed'], 500);
         }
 
-        // Create License
-        $license = License::create([
-            'driverId' => $driver->id,
-            'licenseNumber' => $validatedData['licenseNumber'],
-            'issueDate' => $validatedData['issueDate'],
-            'expiryDate' => $validatedData['expiryDate'],
-            'plateNumber' => $validatedData['plateNumber'],
-        ]);
-
+        try {
+            $license = License::create([
+                'driverId' => $driver->id,
+                'licenseNumber' => $validatedData['licenseNumber'],
+                'issueDate' => $validatedData['issueDate'],
+                'expiryDate' => $validatedData['expiryDate'],
+                'plateNumber' => $validatedData['plateNumber'],
+            ]);
+            \Log::info('Registering driver - license created', ['license' => $license]);
+        } catch (\Exception $e) {
+            \Log::error('Registering driver - license creation failed', ['error' => $e->getMessage(), 'driver_id' => $driver->id, 'data' => $validatedData]);
+            throw $e;
+        }
 
         if(!$license) {
+            \Log::error('Registering driver - license creation returned null', ['driver_id' => $driver->id, 'validatedData' => $validatedData]);
             return response()->json(['message' => 'License registration failed'], 500);
         }
 
-        return response()->json(['message' => 'Driver and License registered successfully'], 201);
+        $cardData = [
+            'license_id' => $license->id,
+            'cardNumber' => $validatedData['nfcTag'] ?? ('CARD-' . strtoupper(uniqid())),
+            'secret' => $request->input('secret'),
+            'programmedDate' => now()->toDateString(),
+        ];
+        try {
+            $card = Card::create($cardData);
+            \Log::info('Registering driver - card created', ['card' => $card]);
+        } catch (\Exception $e) {
+            \Log::error('Registering driver - card creation failed', ['error' => $e->getMessage(), 'cardData' => $cardData]);
+            throw $e;
+        }
+
+        if(!$card) {
+            \Log::error('Registering driver - card creation returned null', ['license_id' => $license->id, 'cardData' => $cardData]);
+            return response()->json(['message' => 'Card creation failed'], 500);
+        }
+
+        \Log::info('Registering driver - all steps successful', [
+            'driver' => $driver,
+            'license' => $license,
+            'card' => $card,
+        ]);
+
+        return response()->json([
+            'message' => 'Driver, License, and Card registered successfully',
+            'driver' => $driver,
+            'license' => $license,
+            'card' => $card,
+        ], 201);
     }
 
     public function UpdateDriver(Request $request, $id)
@@ -127,8 +193,31 @@ class RegisterDriverController extends Controller
         return $response;
     }
 
-    public function printCard(Request $request, $id)
+    public function printCard(Request $request)
     {
+
+        \Log::info('Printing card', ['request' => $request->all()]);
+        // If no driverId and no body, print all drivers with their cards and licenses
+        if (empty($request->all()) || !$request->input('driverId')) {
+            $drivers = Driver::with(['license', 'license.card'])->get();
+            $result = $drivers->map(function ($driver) {
+                $license = $driver->license;
+                $card = $license ? $license->card : null;
+                return [
+                    'driver' => $driver,
+                    'license' => $license,
+                    'card' => $card,
+                    'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
+                    'licensesAllowed' => $license ? $license->licensesAllowed : null,
+                    'allowedCategories' => $license ? $license->allowedCategories : null,
+                ];
+            });
+            return response()->json(['drivers' => $result], 200);
+        }
+
+        $id = $request->input('driverId');
+        $svgFront = $request->input('svgFront');
+        $svgBack = $request->input('svgBack');
         $driver = Driver::find($id);
         if (!$driver) {
             return response()->json(['error' => 'Driver not found'], 404);
@@ -138,29 +227,51 @@ class RegisterDriverController extends Controller
             return response()->json(['error' => 'License not found'], 404);
         }
         try {
-            $secret = bin2hex(random_bytes(32)); // 64 hex digits
+            $secret = bin2hex(random_bytes(32));
             $card = Card::create([
                 'license_id' => $license->id,
                 'cardNumber' => 'CARD-' . strtoupper(uniqid()),
                 'secret' => $secret,
                 'programmedDate' => now()->toDateString(),
             ]);
-            $qrData = [
-                'licenseNumber' => $license->licenseNumber,
-                'cardNumber' => $card->cardNumber,
-                'secret' => $secret,
-            ];
-            $qrString = json_encode($qrData);
-            $qrCode = base64_encode(QrCode::format('png')->size(200)->generate($qrString));
+            if ($svgFront && $svgBack) {
+                $frontPath = 'cards/' . $card->cardNumber . '_front.svg';
+                $backPath = 'cards/' . $card->cardNumber . '_back.svg';
+                \Storage::disk('public')->put($frontPath, $svgFront);
+                \Storage::disk('public')->put($backPath, $svgBack);
+            }
             return response()->json([
                 'card' => $card,
-                'qrCode' => $qrCode,
-                'qrData' => $qrData,
-                'message' => 'Card printed and secret generated.',
+                'driver' => $driver,
+                'license' => $license,
+                'svgFront' => $svgFront,
+                'svgBack' => $svgBack,
+                'dateLieuDelivrance' => $license->dateLieuDelivrance,
+                'licensesAllowed' => $license->licensesAllowed,
+                'allowedCategories' => $license->allowedCategories,
+                'message' => 'Card printed and data stored. Please generate and upload QR code separately.',
             ], 200);
         } catch (\Exception $e) {
             return response()->json(['message' => 'Error printing card', 'error' => $e->getMessage()], 500);
         }
+    }
+
+    /**
+     * Store QR code for a card after frontend generates it.
+     */
+    public function saveCardQr(Request $request)
+    {
+        $request->validate([
+            'cardNumber' => 'required|string|exists:cards,cardNumber',
+            'qrCode' => 'required|string', // base64 or SVG
+        ]);
+        $card = Card::where('cardNumber', $request->cardNumber)->first();
+        if (!$card) {
+            return response()->json(['error' => 'Card not found'], 404);
+        }
+        $qrPath = 'cards/' . $card->cardNumber . '_qr.txt';
+        \Storage::disk('public')->put($qrPath, $request->qrCode);
+        return response()->json(['message' => 'QR code saved', 'cardNumber' => $card->cardNumber]);
     }
 
     // Search driver by license number or plate
@@ -183,16 +294,36 @@ class RegisterDriverController extends Controller
     // Search driver by card number (NFC)
     public function driverByCard($cardNumber)
     {
+        \Log::info('Searching by card', ['cardNumber' => $cardNumber]);
         $card = Card::where('cardNumber', $cardNumber)->first();
         if (!$card) {
-            return response()->json(['error' => 'Aucun conducteur trouvé pour cette carte.'], 404);
+            \Log::warning('Card not found', ['cardNumber' => $cardNumber]);
+            return response()->json(['error' => 'Card not found'], 404);
         }
-        $license = License::find($card->license_id);
+        \Log::info('Card found', ['card' => $card]);
+        $license = $card->license;
         if (!$license) {
-            return response()->json(['error' => 'Aucun conducteur trouvé pour cette carte.'], 404);
+            \Log::warning('License not found for card', ['card' => $card]);
+            return response()->json(['error' => 'License not found'], 404);
         }
+        \Log::info('License found for card', ['license' => $license]);
         $driver = $license->driver;
-        return response()->json($this->formatDriverResponse($driver, $license));
+        if (!$driver) {
+            \Log::warning('Driver not found for license', ['license' => $license]);
+            return response()->json(['error' => 'Driver not found'], 404);
+        }
+        \Log::info('Driver found by card', ['driver' => $driver]);
+        return response()->json([
+            'name' => $driver->name,
+            'surName' => $driver->surName,
+            'licenseId' => $license->licenseNumber,
+            'plate' => $license->plateNumber,
+            'bloodGroup' => $driver->bloodGroup,
+            'issue' => $license->issueDate,
+            'expiry' => $license->expiryDate,
+            'nationalId' => $driver->nationalId,
+            'profileImage' => $driver->profileImage,
+        ]);
     }
 
     // Search driver by QR code (expects base64 encoded JSON string)
@@ -266,5 +397,14 @@ class RegisterDriverController extends Controller
         $card->cardNumber = $request->tagId;
         $card->save();
         return response()->json(['message' => 'Card tag saved', 'cardNumber' => $card->cardNumber]);
+    }
+
+    public function getAllDrivers(Request $request)
+    {
+        $drivers = Driver::with('license')->get()->map(function($driver) {
+            $license = $driver->license;
+            return $this->formatDriverResponse($driver, $license);
+        });
+        return response()->json(['drivers' => $drivers]);
     }
 }

@@ -13,10 +13,18 @@ class License extends Model
         'issueDate',
         'expiryDate',
         'plateNumber',
+        'dateLieuDelivrance',
+        'licensesAllowed',
+        'allowedCategories',
     ];
 
     public function driver(): BelongsTo
     {
         return $this->belongsTo(Driver::class, 'driverId');
+    }
+
+    public function card(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(Card::class, 'license_id');
     }
 }

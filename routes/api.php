@@ -27,3 +27,5 @@ Route::post('/save-card-tag', [RegisterDriverController::class, 'saveCardTag']);
 Route::post('/add-penalty', [PenaltyController::class, 'addPenalty']);
 
 Route::get('/license/{licenseNumber}/penalties', [PenaltyController::class, 'getPenaltiesByLicense']);
+
+Route::get('/get-all-drivers', [RegisterDriverController::class, 'getAllDrivers']);

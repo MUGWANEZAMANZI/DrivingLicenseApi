@@ -12,4 +12,9 @@ class Card extends Model
         'secret',
         'programmedDate',
     ];
+
+    public function license(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(License::class, 'license_id');
+    }
 }
