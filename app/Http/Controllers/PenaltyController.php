@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\License;
 use Illuminate\Http\Request;
 use App\Models\Driver;
 use App\Models\Penalty;
@@ -11,36 +12,58 @@ class PenaltyController extends Controller
 {
     public function addPenalty(Request $request)
     {
-        $validated = $request->validate([
-            'nationalId' => 'required|string|exists:drivers,nationalId',
+        \Log::info('Received addPenalty request', ['data' => $request->all()]);
+
+        $validator = \Validator::make($request->all(), [
+            'plateNumber' => 'required|string|exists:licenses,plateNumber',
             'penalty' => 'required|string',
-            'fine' => 'required|integer',
+            'fine' => 'required|integer|min:1',
         ]);
 
-        $driver = Driver::where('nationalId', $validated['nationalId'])->first();
+        if ($validator->fails()) {
+            \Log::warning('Validation failed for addPenalty', ['errors' => $validator->errors()]);
+            return response()->json([
+                'message' => 'Validation failed',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $validated = $validator->validated();
+        \Log::info('Validation passed', ['validated' => $validated]);
+
+        $driver = License::where('plateNumber', $validated['plateNumber'])->first();
         if (!$driver) {
+            \Log::warning('Driver not found', ['plateNumber' => $validated['plateNumber']]);
             return response()->json(['message' => 'Driver not found'], 404);
         }
 
-        // Find or create penalty type
         $penalty = Penalty::firstOrCreate(
             ['penaltyType' => $validated['penalty']],
             ['amount' => $validated['fine']]
         );
+        \Log::info('Penalty found or created', ['penalty' => $penalty]);
 
-        // Attach penalty to driver
         try {
-            PenaltiesDrivers::create([
+            $penaltyDriver = PenaltiesDrivers::create([
                 'driver_id' => $driver->id,
                 'penalty_id' => $penalty->id,
-                'amount' => $validated['fine'],
                 'dateIssued' => now()->toDateString(),
                 'isPaid' => false,
             ]);
+            \Log::info('Penalty attached to driver', ['penalties_drivers' => $penaltyDriver]);
         } catch (\Exception $e) {
-            return response()->json(['message' => 'Erreur lors de l\'enregistrement de la pénalité.', 'error' => $e->getMessage()], 500);
+            \Log::error('Error saving penalty', ['error' => $e->getMessage()]);
+            return response()->json([
+                'message' => 'Erreur lors de l\'enregistrement de la pénalité.',
+                'error' => $e->getMessage(),
+            ], 500);
         }
-        return response()->json(['message' => 'Pénalité enregistrée.']);
+
+        return response()->json([
+            'message' => 'Penalty added successfully',
+            'driver' => $driver,
+            'penalty' => $penalty,
+        ], 201);
     }
 
     // Get all penalties for a license number
@@ -69,4 +92,3 @@ class PenaltyController extends Controller
         return response()->json(['penalties' => $penalties]);
     }
 }
-

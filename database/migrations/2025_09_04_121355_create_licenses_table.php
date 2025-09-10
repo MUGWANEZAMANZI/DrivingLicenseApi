@@ -19,7 +19,7 @@ return new class extends Migration
             $table->date('expiryDate');
             $table->string('plateNumber')->unique();
             $table->string('dateLieuDelivrance')->nullable(); // Place of issue
-            $table->string('licensesAllowed')->nullable(); // Allowed licenses (text)
+            $table->json('licensesAllowed')->nullable(); // Allowed licenses (text)
             $table->string('allowedCategories')->nullable(); // Allowed categories (comma separated or JSON)
             $table->timestamps();
         });

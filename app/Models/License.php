@@ -27,4 +27,9 @@ class License extends Model
     {
         return $this->hasOne(Card::class, 'license_id');
     }
+
+    public function penalties()
+    {
+        return $this->hasMany(\App\Models\PenaltiesDrivers::class, 'license_id', 'id');
+    }
 }

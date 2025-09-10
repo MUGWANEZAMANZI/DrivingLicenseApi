@@ -29,6 +29,7 @@ class RegisterDriverController extends Controller
                 'address' => 'required|string|max:500',
                 'bloodGroup' => 'required|string|max:3',
                 'nationalId' => 'required|string|max:20|unique:drivers,nationalId',
+                'nationality' => 'nullable|string|max:100',
                 'licenseNumber' => 'required|string|max:50|unique:licenses,licenseNumber',
                 'issueDate' => 'required|date',
                 'expiryDate' => 'required|date|after:issueDate',
@@ -36,7 +37,7 @@ class RegisterDriverController extends Controller
                 'profileImage' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'nfcTag' => 'nullable|string|max:255',
                 'secret' => 'nullable|string|max:255',
-                'licensesAllowed' => 'nullable|string|max:255',
+//                'licensesAllowed' => 'nullable|string|max:255',
                 'dateLieuDelivrance' => 'nullable|string|max:255',
                 'allowedCategories' => 'nullable|string|max:255',
             ])->validate();
@@ -66,6 +67,7 @@ class RegisterDriverController extends Controller
                 'address' => $validatedData['address'],
                 'bloodGroup' => $validatedData['bloodGroup'],
                 'nationalId' => $validatedData['nationalId'],
+                'nationality' => $validated['nationality'] ?? 'Not Specified',
                 'profileImage' => $profileImagePath,
             ]);
             \Log::info('Registering driver - driver created', ['driver' => $driver]);
@@ -86,6 +88,8 @@ class RegisterDriverController extends Controller
                 'issueDate' => $validatedData['issueDate'],
                 'expiryDate' => $validatedData['expiryDate'],
                 'plateNumber' => $validatedData['plateNumber'],
+                'allowedCategories' => $validatedData['allowedCategories'],
+                'dateLieuDelivrance' => $validatedData['dateLieuDelivrance'],
             ]);
             \Log::info('Registering driver - license created', ['license' => $license]);
         } catch (\Exception $e) {
@@ -195,14 +199,65 @@ class RegisterDriverController extends Controller
 
     public function printCard(Request $request)
     {
-
         \Log::info('Printing card', ['request' => $request->all()]);
-        // If no driverId and no body, print all drivers with their cards and licenses
-        if (empty($request->all()) || !$request->input('driverId')) {
-            $drivers = Driver::with(['license', 'license.card'])->get();
-            $result = $drivers->map(function ($driver) {
-                $license = $driver->license;
-                $card = $license ? $license->card : null;
+
+        $cardNumber = $request->input('cardNumber');
+        $query = $request->input('query');
+
+        // If cardNumber is provided, filter by cardNumber only
+        if ($cardNumber) {
+            $card = \App\Models\Card::with(['license', 'license.driver'])
+                ->where('cardNumber', $cardNumber)
+                ->first();
+            if (!$card) {
+                \Log::info('printCard: No card found', ['cardNumber' => $cardNumber]);
+                return response()->json(['drivers' => []]);
+            }
+            $license = $card->license;
+            $driver = $license ? $license->driver : null;
+            if ($driver) {
+                \Log::info('printCard: Driver found for card', ['cardNumber' => $card->cardNumber, 'driverId' => $driver->id]);
+            } else {
+                \Log::warning('printCard: No driver found for card', ['cardNumber' => $card->cardNumber]);
+            }
+            $result = [[
+                'driver' => $driver,
+                'license' => $license,
+                'card' => $card,
+                'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
+                'licensesAllowed' => $license ? $license->licensesAllowed : null,
+                'allowedCategories' => $license ? $license->allowedCategories : null,
+            ]];
+            return response()->json(['drivers' => $result]);
+        }
+
+        // If a single 'query' is provided, use it for all three fields
+        if ($query) {
+            $cards = \App\Models\Card::query()
+                ->where('cardNumber', $query)
+                ->orWhereHas('license', function ($q) use ($query) {
+                    $q->where('licenseNumber', $query);
+                })
+                ->orWhereHas('license', function ($q) use ($query) {
+                    $q->where('driverId', $query);
+                })
+                ->with(['license', 'license.driver'])
+                ->get();
+
+            if ($cards->isEmpty()) {
+                \Log::info('printCard: No cards found', ['query' => $query]);
+            } else {
+                \Log::info('printCard: Cards found', ['count' => $cards->count(), 'cardNumbers' => $cards->pluck('cardNumber')]);
+            }
+
+            $result = $cards->map(function ($card) {
+                $license = $card->license;
+                $driver = $license ? $license->driver : null;
+                if ($driver) {
+                    \Log::info('printCard: Driver found for card', ['cardNumber' => $card->cardNumber, 'driverId' => $driver->id]);
+                } else {
+                    \Log::warning('printCard: No driver found for card', ['cardNumber' => $card->cardNumber]);
+                }
                 return [
                     'driver' => $driver,
                     'license' => $license,
@@ -212,48 +267,26 @@ class RegisterDriverController extends Controller
                     'allowedCategories' => $license ? $license->allowedCategories : null,
                 ];
             });
-            return response()->json(['drivers' => $result], 200);
+
+            return response()->json(['drivers' => $result]);
         }
 
-        $id = $request->input('driverId');
-        $svgFront = $request->input('svgFront');
-        $svgBack = $request->input('svgBack');
-        $driver = Driver::find($id);
-        if (!$driver) {
-            return response()->json(['error' => 'Driver not found'], 404);
-        }
-        $license = $driver->license;
-        if (!$license) {
-            return response()->json(['error' => 'License not found'], 404);
-        }
-        try {
-            $secret = bin2hex(random_bytes(32));
-            $card = Card::create([
-                'license_id' => $license->id,
-                'cardNumber' => 'CARD-' . strtoupper(uniqid()),
-                'secret' => $secret,
-                'programmedDate' => now()->toDateString(),
-            ]);
-            if ($svgFront && $svgBack) {
-                $frontPath = 'cards/' . $card->cardNumber . '_front.svg';
-                $backPath = 'cards/' . $card->cardNumber . '_back.svg';
-                \Storage::disk('public')->put($frontPath, $svgFront);
-                \Storage::disk('public')->put($backPath, $svgBack);
-            }
-            return response()->json([
-                'card' => $card,
+        // Fallback if no query is provided: return all drivers
+        $drivers = Driver::with(['license', 'license.card'])->get();
+        $result = $drivers->map(function ($driver) {
+            $license = $driver->license;
+            $card = $license ? $license->card : null;
+            return [
                 'driver' => $driver,
                 'license' => $license,
-                'svgFront' => $svgFront,
-                'svgBack' => $svgBack,
-                'dateLieuDelivrance' => $license->dateLieuDelivrance,
-                'licensesAllowed' => $license->licensesAllowed,
-                'allowedCategories' => $license->allowedCategories,
-                'message' => 'Card printed and data stored. Please generate and upload QR code separately.',
-            ], 200);
-        } catch (\Exception $e) {
-            return response()->json(['message' => 'Error printing card', 'error' => $e->getMessage()], 500);
-        }
+                'card' => $card,
+                'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
+                'licensesAllowed' => $license ? $license->licensesAllowed : null,
+                'allowedCategories' => $license ? $license->allowedCategories : null,
+            ];
+        });
+
+        return response()->json(['drivers' => $result]);
     }
 
     /**
@@ -307,22 +340,69 @@ class RegisterDriverController extends Controller
             return response()->json(['error' => 'License not found'], 404);
         }
         \Log::info('License found for card', ['license' => $license]);
-        $driver = $license->driver;
+        $driver = $license->driver()->with(['penalties.penalty'])->first();
         if (!$driver) {
             \Log::warning('Driver not found for license', ['license' => $license]);
             return response()->json(['error' => 'Driver not found'], 404);
         }
+        $penalties = $driver->penalties->map(function($pd) {
+            return [
+                'id' => $pd->id,
+                'penaltyType' => $pd->penalty->penaltyType ?? null,
+                'amount' => $pd->amount,
+                'dateIssued' => $pd->dateIssued,
+                'isPaid' => $pd->isPaid,
+            ];
+        });
         \Log::info('Driver found by card', ['driver' => $driver]);
+        // Always return a drivers array, even for single result
         return response()->json([
-            'name' => $driver->name,
-            'surName' => $driver->surName,
-            'licenseId' => $license->licenseNumber,
-            'plate' => $license->plateNumber,
-            'bloodGroup' => $driver->bloodGroup,
-            'issue' => $license->issueDate,
-            'expiry' => $license->expiryDate,
-            'nationalId' => $driver->nationalId,
-            'profileImage' => $driver->profileImage,
+            'drivers' => [[
+                'driver' => [
+                    'id' => $driver->id,
+                    'name' => $driver->name,
+                    'surName' => $driver->surName,
+                    'phone' => $driver->phone,
+                    'email' => $driver->email,
+                    'address' => $driver->address,
+                    'bloodGroup' => $driver->bloodGroup,
+                    'profileImage' => $driver->profileImage,
+                    'nationalId' => $driver->nationalId,
+                    'created_at' => $driver->created_at,
+                    'updated_at' => $driver->updated_at,
+                    'license' => [
+                        'id' => $license->id,
+                        'driverId' => $license->driverId,
+                        'licenseNumber' => $license->licenseNumber,
+                        'issueDate' => $license->issueDate,
+                        'expiryDate' => $license->expiryDate,
+                        'plateNumber' => $license->plateNumber,
+                        'dateLieuDelivrance' => $license->dateLieuDelivrance ?? null,
+                        'licensesAllowed' => $license->licensesAllowed ?? null,
+                        'allowedCategories' => $license->allowedCategories ?? null,
+                        'created_at' => $license->created_at,
+                        'updated_at' => $license->updated_at,
+                        'card' => $license->card ?? null,
+                    ],
+                    'penalties' => $penalties,
+                ],
+                'license' => [
+                    'id' => $license->id,
+                    'driverId' => $license->driverId,
+                    'licenseNumber' => $license->licenseNumber,
+                    'issueDate' => $license->issueDate,
+                    'expiryDate' => $license->expiryDate,
+                    'plateNumber' => $license->plateNumber,
+                    'dateLieuDelivrance' => $license->dateLieuDelivrance ?? null,
+                    'licensesAllowed' => $license->licensesAllowed ?? null,
+                    'allowedCategories' => $license->allowedCategories ?? null,
+                    'created_at' => $license->created_at,
+                    'updated_at' => $license->updated_at,
+                    'card' => $license->card ?? null,
+                ],
+                'card' => $license->card ?? null,
+                'penalties' => $penalties,
+            ]],
         ]);
     }
 
