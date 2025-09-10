@@ -62,6 +62,7 @@
             "@php artisan test"
         ],
         "post-deploy": [
+            "rm -rf public/storage",
             "@php artisan storage:link --ansi"
         ]
     },
