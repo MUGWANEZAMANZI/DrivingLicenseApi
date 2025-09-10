@@ -201,93 +201,49 @@ class RegisterDriverController extends Controller
     {
         \Log::info('Printing card', ['request' => $request->all()]);
 
-        $cardNumber = $request->input('cardNumber');
         $query = $request->input('query');
-
-        // If cardNumber is provided, filter by cardNumber only
-        if ($cardNumber) {
-            $card = \App\Models\Card::with(['license', 'license.driver'])
-                ->where('cardNumber', $cardNumber)
-                ->first();
-            if (!$card) {
-                \Log::info('printCard: No card found', ['cardNumber' => $cardNumber]);
-                return response()->json(['drivers' => []]);
-            }
+        if (is_null($query) || trim($query) === '') {
+            \Log::info('printCard: Empty query received, returning empty drivers array');
+            return response()->json(['drivers' => []]);
+        }
+        // Try to find by card number first
+        $card = \App\Models\Card::with(['license', 'license.driver'])
+            ->where('cardNumber', $query)
+            ->first();
+        if ($card) {
             $license = $card->license;
             $driver = $license ? $license->driver : null;
-            if ($driver) {
-                \Log::info('printCard: Driver found for card', ['cardNumber' => $card->cardNumber, 'driverId' => $driver->id]);
-            } else {
-                \Log::warning('printCard: No driver found for card', ['cardNumber' => $card->cardNumber]);
-            }
+            \Log::info('printCard: Found by cardNumber', ['cardNumber' => $card->cardNumber, 'driverId' => $driver?->id]);
             $result = [[
                 'driver' => $driver,
                 'license' => $license,
                 'card' => $card,
-                'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
-                'licensesAllowed' => $license ? $license->licensesAllowed : null,
-                'allowedCategories' => $license ? $license->allowedCategories : null,
+                'dateLieuDelivrance' => $license?->dateLieuDelivrance,
+                'allowedCategories' => $license?->allowedCategories,
             ]];
             return response()->json(['drivers' => $result]);
         }
-
-        // If a single 'query' is provided, use it for all three fields
-        if ($query) {
-            $cards = \App\Models\Card::query()
-                ->where('cardNumber', $query)
-                ->orWhereHas('license', function ($q) use ($query) {
-                    $q->where('licenseNumber', $query);
-                })
-                ->orWhereHas('license', function ($q) use ($query) {
-                    $q->where('driverId', $query);
-                })
-                ->with(['license', 'license.driver'])
-                ->get();
-
-            if ($cards->isEmpty()) {
-                \Log::info('printCard: No cards found', ['query' => $query]);
-            } else {
-                \Log::info('printCard: Cards found', ['count' => $cards->count(), 'cardNumbers' => $cards->pluck('cardNumber')]);
-            }
-
-            $result = $cards->map(function ($card) {
-                $license = $card->license;
-                $driver = $license ? $license->driver : null;
-                if ($driver) {
-                    \Log::info('printCard: Driver found for card', ['cardNumber' => $card->cardNumber, 'driverId' => $driver->id]);
-                } else {
-                    \Log::warning('printCard: No driver found for card', ['cardNumber' => $card->cardNumber]);
-                }
-                return [
-                    'driver' => $driver,
-                    'license' => $license,
-                    'card' => $card,
-                    'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
-                    'licensesAllowed' => $license ? $license->licensesAllowed : null,
-                    'allowedCategories' => $license ? $license->allowedCategories : null,
-                ];
-            });
-
-            return response()->json(['drivers' => $result]);
-        }
-
-        // Fallback if no query is provided: return all drivers
-        $drivers = Driver::with(['license', 'license.card'])->get();
-        $result = $drivers->map(function ($driver) {
-            $license = $driver->license;
-            $card = $license ? $license->card : null;
-            return [
+        // Try to find by license number
+        $license = \App\Models\License::with(['driver', 'card'])
+            ->where('licenseNumber', $query)
+            ->first();
+        if ($license && $license->card) {
+            $driver = $license->driver;
+            $card = $license->card;
+            \Log::info('printCard: Found by licenseNumber', ['licenseNumber' => $license->licenseNumber, 'driverId' => $driver?->id]);
+            $result = [[
                 'driver' => $driver,
                 'license' => $license,
                 'card' => $card,
-                'dateLieuDelivrance' => $license ? $license->dateLieuDelivrance : null,
-                'licensesAllowed' => $license ? $license->licensesAllowed : null,
-                'allowedCategories' => $license ? $license->allowedCategories : null,
-            ];
-        });
-
-        return response()->json(['drivers' => $result]);
+                'dateLieuDelivrance' => $license->dateLieuDelivrance,
+                'allowedCategories' => $license->allowedCategories,
+            ]];
+            return response()->json(['drivers' => $result]);
+        }
+        \Log::info('printCard: No card or license found for query', ['query' => $query]);
+        return response()->json(['drivers' => []]);
     }
+
 
     /**
      * Store QR code for a card after frontend generates it.
