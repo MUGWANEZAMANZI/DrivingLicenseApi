@@ -1,8 +1,8 @@
-FROM php:8.3-cli
+FROM php:8.3-fpm
 
 WORKDIR /var/www/html
 
-# Install PHP extensions
+# Install PHP extensions + node
 RUN apt-get update && apt-get install -y \
     git curl libpng-dev libonig-dev libxml2-dev libzip-dev libicu-dev zip unzip \
     libjpeg-dev libfreetype6-dev libssl-dev nodejs npm \
@@ -15,15 +15,16 @@ COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
 # Copy app
 COPY . .
 
-# Install dependencies
+# Install dependencies & build assets
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN npm install && npm run build
-
-# Build Filament assets for production
 RUN php artisan filament:assets
 
 # Permissions
-RUN chown -R www-data:www-data storage bootstrap/cache
+RUN chown -R www-data:www-data public/build public/vendor storage bootstrap/cache
 
-# Serve Laravel via built-in server on Railway port
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
+# Expose FPM port
+EXPOSE 8080
+
+# Use Railway's web server (FrankenPHP recommended)
+CMD ["frankenphp", "public/index.php"]
