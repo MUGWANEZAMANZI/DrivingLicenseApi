@@ -19,6 +19,9 @@ COPY . .
 RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN npm install && npm run build
 
+# Build Filament assets for production
+RUN php artisan filament:assets
+
 # Permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
 
