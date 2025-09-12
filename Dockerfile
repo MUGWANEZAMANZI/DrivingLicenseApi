@@ -1,7 +1,7 @@
-# Use FrankenPHP base image (includes PHP + web server)
+# Dockerfile for Laravel + Filament + FrankenPHP
 FROM dunglas/frankenphp
 
-# Install dependencies + PHP extensions + Node
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     git curl unzip zip libzip-dev libpng-dev libonig-dev libxml2-dev libicu-dev \
     libpq-dev libjpeg-dev libfreetype6-dev libssl-dev nodejs npm \
@@ -24,14 +24,11 @@ RUN npm install && npm run build
 RUN php artisan filament:assets
 
 # Ensure directories exist
-RUN mkdir -p storage bootstrap/cache public/build public/vendor
+RUN mkdir -p storage bootstrap/cache public/build public/vendor \
+    && chown -R www-data:www-data storage bootstrap/cache public/build public/vendor
 
-# Set permissions
-RUN chown -R www-data:www-data storage bootstrap/cache public/build public/vendor
-
-# Expose Railway port
+# Expose Railway port (FrankenPHP listens on 80 by default)
 EXPOSE 8080
 
-# Run Laravel using FrankenPHP
-CMD ["frankenphp", "run", "--port", "${PORT:-8080}", "public/index.php"]
-
+# Run Laravel with FrankenPHP
+CMD ["frankenphp", "public/index.php"]
