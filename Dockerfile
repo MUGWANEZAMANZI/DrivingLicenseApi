@@ -33,4 +33,5 @@ RUN chown -R www-data:www-data storage bootstrap/cache public/build public/vendo
 EXPOSE 8080
 
 # Run Laravel using FrankenPHP
-CMD ["frankenphp", "run", "--workers", "4", "public/index.php"]
+CMD ["frankenphp", "run", "public/index.php"]
+
