@@ -33,14 +33,7 @@ RUN apt-get update \
         tokenizer \
         fileinfo \
         gd \
-    && rm -rf /var/lib/apt/lists/*
 
-# FrankenPHP extension (for Filament Livewire SSE/Websockets if needed)
-RUN curl -fsSL https://github.com/dunglas/frankenphp/releases/latest/download/frankenphp.so \
-    -o /usr/local/lib/php/extensions/no-debug-non-zts-20230831/frankenphp.so \
-    && echo "extension=frankenphp.so" > /usr/local/etc/php/conf.d/frankenphp.ini
-
-# Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
 # Copy application files
