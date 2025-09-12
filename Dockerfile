@@ -23,4 +23,4 @@ RUN npm install && npm run build
 RUN chown -R www-data:www-data storage bootstrap/cache
 
 # Serve Laravel via built-in server on Railway port
-CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=${PORT}"]
+CMD ["php", "artisan", "serve", "--host=0.0.0.0", "--port=8080"]
