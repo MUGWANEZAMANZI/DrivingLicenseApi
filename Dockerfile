@@ -1,10 +1,18 @@
+# Install Nginx
+RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+# Copy nginx config
+COPY nginx.conf /etc/nginx/nginx.conf
+# Install supervisor
+RUN apt-get update && apt-get install -y supervisor && rm -rf /var/lib/apt/lists/*
+
+# Copy supervisor config
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # --- Laravel + Nginx + PHP-FPM + FilamentPHP ---
 FROM php:8.3-fpm-bookworm as base
 
 # Install system dependencies and PHP extensions
 RUN apt-get update \
     && apt-get install -y \
-        nginx \
         libicu-dev \
         zlib1g-dev \
         libzip-dev \
@@ -55,14 +63,7 @@ RUN apt-get update \
 # Set permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
 
-# Copy nginx config
-COPY nginx.conf /etc/nginx/nginx.conf
 
-# Install supervisor
-RUN apt-get update && apt-get install -y supervisor && rm -rf /var/lib/apt/lists/*
-
-# Copy supervisor config
-COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 
 # Expose port 8080 for Railway
 EXPOSE 8080
