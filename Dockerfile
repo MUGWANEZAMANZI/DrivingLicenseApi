@@ -1,4 +1,4 @@
-FROM php:8.3-fpm
+FROM dunglas/frankenphp
 
 # Install dependencies + PHP extensions + Node
 RUN apt-get update && apt-get install -y \
@@ -8,9 +8,6 @@ RUN apt-get update && apt-get install -y \
 
 # Install Composer
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
-
-# Install FrankenPHP
-RUN curl -fsSL https://frankenphp.org/install.sh | bash
 
 # Set working directory
 WORKDIR /var/www/html
