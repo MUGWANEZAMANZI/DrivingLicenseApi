@@ -30,6 +30,3 @@ RUN chown -R www-data:www-data storage bootstrap/cache public/build public/vendo
 
 # Expose Railway port
 EXPOSE 8080
-
-# Serve app via FrankenPHP
-CMD ["frankenphp", "public/index.php"]
