@@ -20,11 +20,14 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction
 RUN npm install && npm run build
 RUN php artisan filament:assets
 
-# Permissions
+# Ensure all directories exist before setting permissions
+RUN mkdir -p public/build public/vendor storage bootstrap/cache
+
+# Set permissions
 RUN chown -R www-data:www-data public/build public/vendor storage bootstrap/cache
 
 # Expose FPM port
-EXPOSE 8080
+EXPOSE 9000
 
-# Use Railway's web server (FrankenPHP recommended)
+# Serve Laravel via FrankenPHP (Railway recommended)
 CMD ["frankenphp", "public/index.php"]
