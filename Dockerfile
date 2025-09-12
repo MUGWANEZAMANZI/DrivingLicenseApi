@@ -1,3 +1,4 @@
+# Use FrankenPHP base image (includes PHP + web server)
 FROM dunglas/frankenphp
 
 # Install dependencies + PHP extensions + Node
@@ -30,3 +31,6 @@ RUN chown -R www-data:www-data storage bootstrap/cache public/build public/vendo
 
 # Expose Railway port
 EXPOSE 8080
+
+# Run Laravel using FrankenPHP
+CMD ["frankenphp", "run", "--listen", "0.0.0.0:8080", "public/index.php"]
