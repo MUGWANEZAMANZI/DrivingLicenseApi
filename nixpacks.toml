@@ -1,11 +1,14 @@
 # nixpacks.toml for Laravel + Tailwind (Filament)
+
 [phases.setup]
-# Install Node.js 22.x for Tailwind build
-nixPkgs = ["nodejs_22"]
+# Install Node.js 22.x and Composer for Laravel and Tailwind build
+nixPkgs = ["nodejs_22", "composer"]
+
 
 [phases.build]
-# Install Node dependencies and build assets
+# Install PHP dependencies, then Node dependencies and build assets
 cmds = [
+  "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist",
   "npm install --no-progress --no-audit",
   "npm run build"
 ]
