@@ -1,8 +1,12 @@
-# --- Laravel + Apache + PHP 8.3 + Node/Tailwind ---# Install Nginx
 
-FROM php:8.3-apacheRUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+# --- Laravel + Apache + PHP 8.3 + Node/Tailwind ---
+FROM php:8.3-apache
 
-# Copy nginx config
+# Install Nginx (optional, comment out if not needed)
+# RUN apt-get update && apt-get install -y nginx && rm -rf /var/lib/apt/lists/*
+
+# Copy nginx config (optional)
+# COPY nginx.conf /etc/nginx/nginx.conf
 
 # Install system dependenciesCOPY nginx.conf /etc/nginx/nginx.conf
 
