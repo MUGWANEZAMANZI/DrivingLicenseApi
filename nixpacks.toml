@@ -2,7 +2,7 @@
 
 [phases.setup]
 # Install Node.js 22.x and Composer for Laravel and Tailwind build
-nixPkgs = ["nodejs_22", "composer"]
+nixPkgs = ["nodejs_22", "php83Packages.composer"]
 
 
 [phases.build]
