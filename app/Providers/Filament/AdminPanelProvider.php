@@ -20,6 +20,7 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use Filament\Actions\Action;
 use App\Livewire\CustomFilamentInfoWidget;
+use Filament\Support\Assets\Css;
 
 
 
@@ -59,6 +60,10 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->authMiddleware([
                 Authenticate::class,
+            ])
+            ->assets([
+                // Tailwind via CDN
+                Css::make('https://cdn.jsdelivr.net/npm/tailwindcss@3.4.4/dist/tailwind.min.css'),
             ])
             ->widgets([
                 AccountWidget::class,
