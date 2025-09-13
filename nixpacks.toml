@@ -1,0 +1,19 @@
+# nixpacks.toml for Laravel + Tailwind (Filament)
+[phases.setup]
+# Install Node.js 22.x for Tailwind build
+nixPkgs = ["nodejs_22"]
+
+[phases.build]
+# Install Node dependencies and build assets
+cmds = [
+  "npm install --no-progress --no-audit",
+  "npm run build"
+]
+
+[phases.start]
+# Start the Laravel app (default command)
+cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
+
+[variables]
+# Set the default port for Railway/Nixpacks
+PORT = "8080"
