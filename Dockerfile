@@ -79,13 +79,13 @@ RUN composer install --no-dev --optimize-autoloader --no-interaction --prefer-di
 
 # Install Node.js and build assets if package.json exists
 RUN apt-get update \
-    && apt-get install -y curl ca-certificates \
-    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
-    && apt-get install -y nodejs \
-    && if [ -f package.json ]; then npm install --no-progress --no-audit && npm run build; fi \
-    && apt-get remove -y curl \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/*
+        && apt-get install -y curl ca-certificates libonig-dev \
+        && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+        && apt-get install -y nodejs \
+        && if [ -f package.json ]; then npm install --no-progress --no-audit && npm run build; fi \
+        && apt-get remove -y curl \
+        && apt-get autoremove -y \
+        && rm -rf /var/lib/apt/lists/*
 
 # Set permissions
 RUN chown -R www-data:www-data storage bootstrap/cache
