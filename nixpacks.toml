@@ -7,19 +7,24 @@ nixPkgs = ["nodejs_22", "php83Packages.composer", "nginx", "php83", "php83Extens
 
 
 
+
 [phases.build]
 # Install PHP dependencies, then Node dependencies and build assets
 cmds = [
   "composer install --no-dev --optimize-autoloader --no-interaction --prefer-dist",
-  "npm install --no-progress --no-audit",
+  "npm ci --no-audit --progress=false",
   "npm run build"
 ]
+
+[phases.build.artifacts]
+paths = ["public/build"]
+
 
 
 
 [phases.start]
-# Start Nginx and PHP-FPM for production
-cmd = "php-fpm -D && nginx -g 'daemon off;'"
+# Start Nginx and PHP-FPM for production, using custom nginx.conf
+cmd = "php-fpm -D && nginx -c /app/nginx.conf -g 'daemon off;'"
 
 
 [variables]
