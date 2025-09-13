@@ -1,8 +1,10 @@
 # nixpacks.toml for Laravel + Tailwind (Filament)
 
+
 [phases.setup]
-# Install Node.js 22.x and Composer for Laravel and Tailwind build
-nixPkgs = ["nodejs_22", "php83Packages.composer"]
+# Install Node.js 22.x, Composer, Nginx, and PHP-FPM for Laravel and Tailwind build
+nixPkgs = ["nodejs_22", "php83Packages.composer", "nginx", "php83", "php83Extensions.mbstring", "php83Extensions.zip", "php83Extensions.intl", "php83Extensions.fileinfo", "php83Extensions.gd", "php83Extensions.bcmath", "php83Extensions.pdo_mysql"]
+
 
 
 [phases.build]
@@ -13,9 +15,12 @@ cmds = [
   "npm run build"
 ]
 
+
+
 [phases.start]
-# Start the Laravel app (default command)
-cmd = "php artisan serve --host=0.0.0.0 --port=$PORT"
+# Start Nginx and PHP-FPM for production
+cmd = "php-fpm -D && nginx -g 'daemon off;'"
+
 
 [variables]
 # Set the default port for Railway/Nixpacks
