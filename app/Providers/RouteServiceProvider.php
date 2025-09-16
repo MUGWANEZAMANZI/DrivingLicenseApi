@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\Route;
+use App\Http\Middleware\SetLocaleFromSession;
 
 class RouteServiceProvider extends ServiceProvider
 {
@@ -21,7 +22,7 @@ class RouteServiceProvider extends ServiceProvider
     public function boot()
     {
         $this->routes(function () {
-            Route::middleware('web')
+            Route::middleware(['web', SetLocaleFromSession::class])
                 ->group(base_path('routes/web.php'));
 
             Route::prefix('api')

@@ -21,4 +21,9 @@ class PenaltiesDrivers extends Model
     {
         return $this->belongsTo(Penalty::class, 'penalty_id');
     }
+
+    public function driver()
+    {
+        return $this->belongsTo(Driver::class, 'driver_id');
+    }
 }
