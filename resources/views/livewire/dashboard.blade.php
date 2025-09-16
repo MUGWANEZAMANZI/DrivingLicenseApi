@@ -1,12 +1,8 @@
+
 <div>
     <div class="flex justify-between items-center mb-6">
         <h1 class="text-2xl font-semibold">{{ __('dashboard.title') }}</h1>
-        <form method="POST" action="{{ route('logout') }}">
-            @csrf
-            <button type="submit" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Logout</button>
-        </form>
     </div>
-
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         <div class="bg-white rounded-lg border p-4">
             <div class="text-sm text-gray-500">{{ __('models.driver.plural') }}</div>
