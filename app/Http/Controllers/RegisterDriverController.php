@@ -443,4 +443,114 @@ class RegisterDriverController extends Controller
         });
         return response()->json(['drivers' => $drivers]);
     }
+    /**
+     * Search penalties by query (plate number, license number, card number, national id)
+     */
+    public function penaltiesSearch(Request $request)
+    {
+        $query = $request->query('query');
+        if (!$query) {
+            return response()->json(['error' => 'Query is required.'], 400);
+        }
+
+        // Try to find by plate number or license number
+        $license = License::where('licenseNumber', $query)
+            ->orWhere('plateNumber', $query)
+            ->first();
+        if ($license) {
+            $driver = $license->driver;
+            $penalties = $driver ? $driver->penalties()->with('penalty')->get() : collect();
+            return response()->json([
+                'driver' => $driver,
+                'license' => $license,
+                'penalties' => $penalties,
+            ]);
+        }
+
+        // Try to find by card number
+        $card = Card::with(['license.driver'])->where('cardNumber', $query)->first();
+        if ($card && $card->license && $card->license->driver) {
+            $driver = $card->license->driver;
+            $license = $card->license;
+            $penalties = $driver->penalties()->with('penalty')->get();
+            return response()->json([
+                'driver' => $driver,
+                'license' => $license,
+                'card' => $card,
+                'penalties' => $penalties,
+            ]);
+        }
+
+        // Try to find by national id
+        $driver = Driver::where('nationalId', $query)->first();
+        if ($driver) {
+            $license = $driver->license;
+            $card = $license ? $license->card : null;
+            $penalties = $driver->penalties()->with('penalty')->get();
+            return response()->json([
+                'driver' => $driver,
+                'license' => $license,
+                'card' => $card,
+                'penalties' => $penalties,
+            ]);
+        }
+
+        return response()->json(['error' => 'No record found for query.'], 404);
+    }
+
+
+        /**
+     * Search penalties by query (plate number, license number, card number, national id)
+     */
+    // public function penaltiesSearch(Request $request)
+    // {
+    //     $query = $request->query('query');
+    //     if (!$query) {
+    //         return response()->json(['error' => 'Query is required.'], 400);
+    //     }
+
+    //     // Try to find by plate number or license number
+    //     $license = License::where('licenseNumber', $query)
+    //         ->orWhere('plateNumber', $query)
+    //         ->first();
+    //     if ($license) {
+    //         $driver = $license->driver;
+    //         $penalties = $driver ? $driver->penalties()->with('penalty')->get() : collect();
+    //         return response()->json([
+    //             'driver' => $driver,
+    //             'license' => $license,
+    //             'penalties' => $penalties,
+    //         ]);
+    //     }
+
+    //     // Try to find by card number
+    //     $card = Card::with(['license.driver'])->where('cardNumber', $query)->first();
+    //     if ($card && $card->license && $card->license->driver) {
+    //         $driver = $card->license->driver;
+    //         $license = $card->license;
+    //         $penalties = $driver->penalties()->with('penalty')->get();
+    //         return response()->json([
+    //             'driver' => $driver,
+    //             'license' => $license,
+    //             'card' => $card,
+    //             'penalties' => $penalties,
+    //         ]);
+    //     }
+
+    //     // Try to find by national id
+    //     $driver = Driver::where('nationalId', $query)->first();
+    //     if ($driver) {
+    //         $license = $driver->license;
+    //         $card = $license ? $license->card : null;
+    //         $penalties = $driver->penalties()->with('penalty')->get();
+    //         return response()->json([
+    //             'driver' => $driver,
+    //             'license' => $license,
+    //             'card' => $card,
+    //             'penalties' => $penalties,
+    //         ]);
+    //     }
+
+    //     return response()->json(['error' => 'No record found for query.'], 404);
+    // }
 }

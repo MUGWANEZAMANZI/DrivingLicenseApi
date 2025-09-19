@@ -69,7 +69,7 @@ class PenaltyController extends Controller
     // Get all penalties for a license number
     public function getPenaltiesByLicense($licenseNumber)
     {
-        $license = \App\Models\License::where('licenseNumber', $licenseNumber)->first();
+        $license = License::where('licenseNumber', $licenseNumber)->first();
         if (!$license) {
             return response()->json(['message' => 'License not found'], 404);
         }

@@ -20,14 +20,15 @@ class Index extends Component
     #[Layout('layouts.app')]
     public function render()
     {
-        $penalties = Penalty::query()
-            ->when($this->search, function ($q) {
-                $q->where('penaltyType', 'like', "%{$this->search}%");
-            })
+        // Show penalties via PenaltiesDrivers, eager load driver and license
+        $penaltiesDrivers = \App\Models\PenaltiesDrivers::with(['driver.license', 'penalty'])
             ->latest('id')
             ->paginate(10);
 
-        return view('livewire.penalties.index', compact('penalties'));
+        return view('livewire.penalties.index', [
+            'penaltiesDrivers' => $penaltiesDrivers,
+            'search' => $this->search,
+        ]);
     }
 }
 

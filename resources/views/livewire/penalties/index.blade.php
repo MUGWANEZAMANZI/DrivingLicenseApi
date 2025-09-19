@@ -15,17 +15,21 @@
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('models.penalty.fields.penaltyType') }}</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('models.penalty.fields.amount') }}</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Plate Number') }}</th>
+                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Driver Name') }}</th>
                     <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">{{ __('Actions') }}</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-                @foreach($penalties as $penalty)
+                @foreach($penaltiesDrivers as $pd)
                 <tr>
-                    <td class="px-4 py-2">{{ $penalty->id }}</td>
-                    <td class="px-4 py-2">{{ $penalty->penaltyType }}</td>
-                    <td class="px-4 py-2">{{ number_format($penalty->amount, 2) }}</td>
+                    <td class="px-4 py-2">{{ $pd->id }}</td>
+                    <td class="px-4 py-2">{{ $pd->penalty ? $pd->penalty->penaltyType : '' }}</td>
+                    <td class="px-4 py-2">{{ $pd->penalty ? number_format($pd->penalty->amount, 2) : '' }}</td>
+                    <td class="px-4 py-2">{{ $pd->driver && $pd->driver->license ? $pd->driver->license->plateNumber : '' }}</td>
+                    <td class="px-4 py-2">{{ $pd->driver ? $pd->driver->name . ' ' . $pd->driver->surName : '' }}</td>
                     <td class="px-4 py-2 space-x-2">
-                        <a class="text-blue-600 hover:underline" href="{{ route('penalties.edit', $penalty) }}">{{ __('Edit') }}</a>
+                        <a class="text-blue-600 hover:underline" href="{{ route('penalties.edit', $pd->penalty_id) }}">{{ __('Edit') }}</a>
                     </td>
                 </tr>
                 @endforeach
@@ -33,7 +37,7 @@
         </table>
     </div>
 
-    <div class="mt-4">{{ $penalties->links() }}</div>
+    <div class="mt-4">{{ $penaltiesDrivers->links() }}</div>
 </div>
 
 

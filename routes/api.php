@@ -18,6 +18,7 @@ Route::post('/verify-license', [RegisterDriverController::class, 'verifyLicense'
 Route::post('/print-card', [RegisterDriverController::class, 'printCard']);
 
 Route::get('/driver-search', [RegisterDriverController::class, 'driverSearch']);
+Route::get('/penalties-search', [RegisterDriverController::class, 'penaltiesSearch']);
 Route::get('/driver-by-card/{cardNumber}', [RegisterDriverController::class, 'driverByCard']);
 Route::get('/driver-by-qr/{qrData}', [RegisterDriverController::class, 'driverByQr']);
 
