@@ -61,7 +61,7 @@ while (($row = fgetcsv($handle)) !== false) {
         // Prepare user data
         $userData = [
             'name' => $data['name'] ?? 'Unknown',
-            'email' => $data['email'] ?? "user{$rowNumber}@example.com",
+            'email' => $data['email'] ?? uniqid('user_') . '@example.com',
             'password' => Hash::make($data['password'] ?? 'password'),
             'email_verified_at' => now(),
             'created_at' => now(),
