@@ -2,13 +2,18 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Models\Card;
 use App\Models\Driver;
 use App\Models\License;
-use App\Models\Card;
+use Illuminate\Http\Request;
 
 class RegisterDriverController extends Controller
 {
+    private function jsonResponse(array $data, int $status = 200)
+    {
+        return response()->json($data, $status, [], JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
     public function register(Request $request)
     {
         \Log::info('Registering driver - request received', $request->all());
@@ -37,7 +42,7 @@ class RegisterDriverController extends Controller
                 'profileImage' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'nfcTag' => 'nullable|string|max:255',
                 'secret' => 'nullable|string|max:255',
-//                'licensesAllowed' => 'nullable|string|max:255',
+                //                'licensesAllowed' => 'nullable|string|max:255',
                 'dateLieuDelivrance' => 'nullable|string|max:255',
                 'allowedCategories' => 'nullable|string|max:255',
             ])->validate();
@@ -67,7 +72,7 @@ class RegisterDriverController extends Controller
                 'address' => $validatedData['address'],
                 'bloodGroup' => $validatedData['bloodGroup'],
                 'nationalId' => $validatedData['nationalId'],
-                'nationality' => $validated['nationality'] ?? 'Not Specified',
+                'nationality' => $validatedData['nationality'] ?? 'Not Specified',
                 'profileImage' => $profileImagePath,
             ]);
             \Log::info('Registering driver - driver created', ['driver' => $driver]);
@@ -76,9 +81,10 @@ class RegisterDriverController extends Controller
             throw $e;
         }
 
-        if(!$driver) {
+        if (! $driver) {
             \Log::error('Registering driver - driver creation returned null', ['validatedData' => $validatedData]);
-            return response()->json(['message' => 'Driver registration failed'], 500);
+
+            return $this->jsonResponse(['message' => 'Driver registration failed'], 500);
         }
 
         try {
@@ -97,14 +103,15 @@ class RegisterDriverController extends Controller
             throw $e;
         }
 
-        if(!$license) {
+        if (! $license) {
             \Log::error('Registering driver - license creation returned null', ['driver_id' => $driver->id, 'validatedData' => $validatedData]);
-            return response()->json(['message' => 'License registration failed'], 500);
+
+            return $this->jsonResponse(['message' => 'License registration failed'], 500);
         }
 
         $cardData = [
             'license_id' => $license->id,
-            'cardNumber' => $validatedData['nfcTag'] ?? ('CARD-' . strtoupper(uniqid())),
+            'cardNumber' => $validatedData['nfcTag'] ?? ('CARD-'.strtoupper(uniqid())),
             'secret' => $request->input('secret'),
             'programmedDate' => now()->toDateString(),
         ];
@@ -116,9 +123,10 @@ class RegisterDriverController extends Controller
             throw $e;
         }
 
-        if(!$card) {
+        if (! $card) {
             \Log::error('Registering driver - card creation returned null', ['license_id' => $license->id, 'cardData' => $cardData]);
-            return response()->json(['message' => 'Card creation failed'], 500);
+
+            return $this->jsonResponse(['message' => 'Card creation failed'], 500);
         }
 
         \Log::info('Registering driver - all steps successful', [
@@ -127,7 +135,7 @@ class RegisterDriverController extends Controller
             'card' => $card,
         ]);
 
-        return response()->json([
+        return $this->jsonResponse([
             'message' => 'Driver, License, and Card registered successfully',
             'driver' => $driver,
             'license' => $license,
@@ -138,18 +146,18 @@ class RegisterDriverController extends Controller
     public function UpdateDriver(Request $request, $id)
     {
         $driver = Driver::find($id);
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['message' => 'Driver not found'], 404);
         }
 
         $validatedData = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'surName' => 'sometimes|required|string|max:255',
-            'phone' => 'sometimes|required|string|max:20|unique:drivers,phone,' . $driver->id,
-            'email' => 'sometimes|required|string|email|max:255|unique:drivers,email,' . $driver->id,
+            'phone' => 'sometimes|required|string|max:20|unique:drivers,phone,'.$driver->id,
+            'email' => 'sometimes|required|string|email|max:255|unique:drivers,email,'.$driver->id,
             'address' => 'sometimes|required|string|max:500',
             'bloodGroup' => 'sometimes|required|string|max:3',
-            'nationalId' => 'sometimes|required|string|max:20|unique:drivers,nationalId,' . $driver->id,
+            'nationalId' => 'sometimes|required|string|max:20|unique:drivers,nationalId,'.$driver->id,
         ]);
 
         $driver->update($validatedData);
@@ -157,16 +165,15 @@ class RegisterDriverController extends Controller
         return response()->json(['message' => 'Driver updated successfully'], 200);
     }
 
-
     public function verifyLicense(Request $request, $id)
     {
         $driver = Driver::find($id);
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['message' => 'Driver not found'], 404);
         }
 
         $license = $driver->license;
-        if (!$license) {
+        if (! $license) {
             return response()->json(['message' => 'License not found'], 404);
         }
 
@@ -179,7 +186,8 @@ class RegisterDriverController extends Controller
     }
 
     // Helper to format driver response (with optional QR code)
-    private function formatDriverResponse($driver, $license, $qrCode = null) {
+    private function formatDriverResponse($driver, $license, $qrCode = null)
+    {
         $response = [
             'name' => $driver->name,
             'surName' => $driver->surName,
@@ -194,6 +202,7 @@ class RegisterDriverController extends Controller
         if ($qrCode) {
             $response['qrCode'] = $qrCode;
         }
+
         return $response;
     }
 
@@ -204,6 +213,7 @@ class RegisterDriverController extends Controller
         $query = $request->input('query');
         if (is_null($query) || trim($query) === '') {
             \Log::info('printCard: Empty query received, returning empty drivers array');
+
             return response()->json(['drivers' => []]);
         }
         // Try to find by card number first
@@ -221,6 +231,7 @@ class RegisterDriverController extends Controller
                 'dateLieuDelivrance' => $license?->dateLieuDelivrance,
                 'allowedCategories' => $license?->allowedCategories,
             ]];
+
             return response()->json(['drivers' => $result]);
         }
         // Try to find by license number
@@ -238,12 +249,13 @@ class RegisterDriverController extends Controller
                 'dateLieuDelivrance' => $license->dateLieuDelivrance,
                 'allowedCategories' => $license->allowedCategories,
             ]];
+
             return response()->json(['drivers' => $result]);
         }
         \Log::info('printCard: No card or license found for query', ['query' => $query]);
+
         return response()->json(['drivers' => []]);
     }
-
 
     /**
      * Store QR code for a card after frontend generates it.
@@ -255,11 +267,12 @@ class RegisterDriverController extends Controller
             'qrCode' => 'required|string', // base64 or SVG
         ]);
         $card = Card::where('cardNumber', $request->cardNumber)->first();
-        if (!$card) {
+        if (! $card) {
             return response()->json(['error' => 'Card not found'], 404);
         }
-        $qrPath = 'cards/' . $card->cardNumber . '_qr.txt';
+        $qrPath = 'cards/'.$card->cardNumber.'_qr.txt';
         \Storage::disk('public')->put($qrPath, $request->qrCode);
+
         return response()->json(['message' => 'QR code saved', 'cardNumber' => $card->cardNumber]);
     }
 
@@ -267,16 +280,17 @@ class RegisterDriverController extends Controller
     public function driverSearch(Request $request)
     {
         $query = $request->query('query');
-        if (!$query) {
+        if (! $query) {
             return response()->json(['error' => 'Query is required.'], 400);
         }
         $license = License::where('licenseNumber', $query)
             ->orWhere('plateNumber', $query)
             ->first();
-        if (!$license) {
+        if (! $license) {
             return response()->json(['error' => 'Aucun conducteur trouvé.'], 404);
         }
         $driver = $license->driver;
+
         return response()->json($this->formatDriverResponse($driver, $license));
     }
 
@@ -285,23 +299,26 @@ class RegisterDriverController extends Controller
     {
         \Log::info('Searching by card', ['cardNumber' => $cardNumber]);
         $card = Card::where('cardNumber', $cardNumber)->first();
-        if (!$card) {
+        if (! $card) {
             \Log::warning('Card not found', ['cardNumber' => $cardNumber]);
+
             return response()->json(['error' => 'Card not found'], 404);
         }
         \Log::info('Card found', ['card' => $card]);
         $license = $card->license;
-        if (!$license) {
+        if (! $license) {
             \Log::warning('License not found for card', ['card' => $card]);
+
             return response()->json(['error' => 'License not found'], 404);
         }
         \Log::info('License found for card', ['license' => $license]);
         $driver = $license->driver()->with(['penalties.penalty'])->first();
-        if (!$driver) {
+        if (! $driver) {
             \Log::warning('Driver not found for license', ['license' => $license]);
+
             return response()->json(['error' => 'Driver not found'], 404);
         }
-        $penalties = $driver->penalties->map(function($pd) {
+        $penalties = $driver->penalties->map(function ($pd) {
             return [
                 'id' => $pd->id,
                 'penaltyType' => $pd->penalty->penaltyType ?? null,
@@ -311,6 +328,7 @@ class RegisterDriverController extends Controller
             ];
         });
         \Log::info('Driver found by card', ['driver' => $driver]);
+
         // Always return a drivers array, even for single result
         return response()->json([
             'drivers' => [[
@@ -366,14 +384,15 @@ class RegisterDriverController extends Controller
     public function driverByQr($qrData)
     {
         $decoded = json_decode(base64_decode($qrData), true);
-        if (!$decoded || !isset($decoded['driver']['nationalId'])) {
+        if (! $decoded || ! isset($decoded['driver']['nationalId'])) {
             return response()->json(['error' => 'QR code invalide.'], 400);
         }
         $driver = Driver::where('nationalId', $decoded['driver']['nationalId'])->first();
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['error' => 'Aucun conducteur trouvé pour ce QR code.'], 404);
         }
         $license = $driver->license;
+
         return response()->json($this->formatDriverResponse($driver, $license));
     }
 
@@ -385,26 +404,27 @@ class RegisterDriverController extends Controller
             'nationalId' => 'required|string|exists:drivers,nationalId',
         ]);
         $driver = Driver::where('nationalId', $request->nationalId)->first();
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['error' => 'Driver not found'], 404);
         }
         $license = $driver->license;
-        if (!$license) {
+        if (! $license) {
             return response()->json(['error' => 'License not found'], 404);
         }
         $card = Card::where('license_id', $license->id)->latest()->first();
-        if (!$card) {
+        if (! $card) {
             $card = Card::create([
                 'license_id' => $license->id,
-                'cardNumber' => 'CARD-' . strtoupper(uniqid()),
+                'cardNumber' => 'CARD-'.strtoupper(uniqid()),
                 'programmedDate' => now()->toDateString(),
             ]);
         }
         // Store SVGs in storage/app/public/cards/{cardNumber}_front.svg and _back.svg
-        $frontPath = 'cards/' . $card->cardNumber . '_front.svg';
-        $backPath = 'cards/' . $card->cardNumber . '_back.svg';
+        $frontPath = 'cards/'.$card->cardNumber.'_front.svg';
+        $backPath = 'cards/'.$card->cardNumber.'_back.svg';
         \Storage::disk('public')->put($frontPath, $request->svgFront);
         \Storage::disk('public')->put($backPath, $request->svgBack);
+
         return response()->json(['message' => 'SVGs saved', 'cardNumber' => $card->cardNumber]);
     }
 
@@ -415,41 +435,45 @@ class RegisterDriverController extends Controller
             'nationalId' => 'required|string|exists:drivers,nationalId',
         ]);
         $driver = Driver::where('nationalId', $request->nationalId)->first();
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['error' => 'Driver not found'], 404);
         }
         $license = $driver->license;
-        if (!$license) {
+        if (! $license) {
             return response()->json(['error' => 'License not found'], 404);
         }
         $card = Card::where('license_id', $license->id)->latest()->first();
-        if (!$card) {
+        if (! $card) {
             $card = Card::create([
                 'license_id' => $license->id,
-                'cardNumber' => 'CARD-' . strtoupper(uniqid()),
+                'cardNumber' => 'CARD-'.strtoupper(uniqid()),
                 'programmedDate' => now()->toDateString(),
             ]);
         }
         $card->cardNumber = $request->tagId;
         $card->save();
+
         return response()->json(['message' => 'Card tag saved', 'cardNumber' => $card->cardNumber]);
     }
 
     public function getAllDrivers(Request $request)
     {
-        $drivers = Driver::with('license')->get()->map(function($driver) {
+        $drivers = Driver::with('license')->get()->map(function ($driver) {
             $license = $driver->license;
+
             return $this->formatDriverResponse($driver, $license);
         });
+
         return response()->json(['drivers' => $drivers]);
     }
+
     /**
      * Search penalties by query (plate number, license number, card number, national id)
      */
     public function penaltiesSearch(Request $request)
     {
         $query = $request->query('query');
-        if (!$query) {
+        if (! $query) {
             return response()->json(['error' => 'Query is required.'], 400);
         }
 
@@ -460,6 +484,7 @@ class RegisterDriverController extends Controller
         if ($license) {
             $driver = $license->driver;
             $penalties = $driver ? $driver->penalties()->with('penalty')->get() : collect();
+
             return response()->json([
                 'driver' => $driver,
                 'license' => $license,
@@ -473,6 +498,7 @@ class RegisterDriverController extends Controller
             $driver = $card->license->driver;
             $license = $card->license;
             $penalties = $driver->penalties()->with('penalty')->get();
+
             return response()->json([
                 'driver' => $driver,
                 'license' => $license,
@@ -487,6 +513,7 @@ class RegisterDriverController extends Controller
             $license = $driver->license;
             $card = $license ? $license->card : null;
             $penalties = $driver->penalties()->with('penalty')->get();
+
             return response()->json([
                 'driver' => $driver,
                 'license' => $license,
@@ -498,8 +525,7 @@ class RegisterDriverController extends Controller
         return response()->json(['error' => 'No record found for query.'], 404);
     }
 
-
-        /**
+    /**
      * Search penalties by query (plate number, license number, card number, national id)
      */
     // public function penaltiesSearch(Request $request)
